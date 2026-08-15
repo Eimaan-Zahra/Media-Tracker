@@ -1,12 +1,59 @@
 """Command-line entry point for the media tracker."""
-
+from datetime import date
 from models import Book, Movie, Game
+import json
+
+DATA_FILE="media.json"
+
+def get_integer(value):
+    while True:
+        try:
+            return int(input(value))
+        except ValueError:
+            print('Please enter a valid number.')
+
+
+def get_float(value):
+    while True:
+        try:
+            return float(input(value))
+        except ValueError:
+            print('Please enter a valid number.')
+
+
+Status=['finished','not-started','in-progress']
+def select_status():
+    while True:
+        print('Select status:')
+        for i, s in enumerate(Status, start=1):
+            print(f'{i}-{s}')
+
+        while True:
+            try:
+                choice = int(input('Enter your choice: '))
+                break
+            except ValueError:
+                print('Please enter a valid number.')
+        
+        if (choice <= 0) or (choice > len(Status)):
+            print('.\n.\n.\ninvalid choice (1-3)........try again \n.\n.\n.')
+            continue
+        else:
+            break
+
+    return Status[choice-1]
 
 
 '''Get a rating from 0 to 5.'''
 def get_rating():
     while True:
-        rating = float(input('Rating (0-5): '))
+
+        try:
+            rating = float(input('Rating (0-5): '))
+        except ValueError:
+            print('Please enter a valid number.')
+            continue
+
         if rating < 0 or rating > 5:
             print('Rating must be between 0 and 5. Try again.')
             continue
@@ -19,7 +66,12 @@ def add_item(collection):
     while(True):
         print("Please select your media type:")
         print(f"1-Book \n2-Movie \n3-Game")
-        choice=int(input('Enter your choice: '))
+
+        try:
+            choice = int(input('Enter your choice: '))
+        except ValueError:
+            print('Please enter a valid number.')
+            continue
     
         #selection
         if (choice <= 0) or (choice>3):
@@ -30,32 +82,35 @@ def add_item(collection):
 
     match choice:
         case 1:
-            print(f'{'-'*4} Book Data Entry {'-'*4}')
+            divider = '-' * 4
+            print(f'{divider} Book Data Entry {divider}')
             book_name=input(f'Name: ')
-            status=input(f'Status (finished,in-progress,): ')
-            rating=get_rating()
-            pages=int(input(f'Pages: '))
+            status=select_status()
+            pages = get_integer('Pages: ')
             author=input(f'Author: ')
+            rating=get_rating()
             collection.append(Book(book_name,status=status,rating=rating,pages=pages,author=author))
             print('\n\n')
 
             
         case 2:
-            print(f'{'-'*4} Movie Data Entry {'-'*4}')
+            divider = '-' * 4
+            print(f'{divider} Movie Data Entry {divider}')
             movie_name=input(f'Name: ')
-            status=input(f'Status (finished, in-progress): ')
+            status=select_status()
             rating=get_rating()
-            runtime_minutes=int(input(f'Run-Time-Minutes: '))
+            runtime_minutes = get_integer('Run-Time-Minutes: ')
             director=input(f'director: ')
             collection.append(Movie(movie_name,status=status,rating=rating,runtime_minutes=runtime_minutes,director=director))
             print('\n\n')
 
         case 3:
-            print(f'{'-'*4} Game Data Entry {'-'*4}')
+            divider = '-' * 4
+            print(f'{divider} Game Data Entry {divider}')
             game_name=input(f'Name: ')
-            status=input(f'Status (finished,in-progress,): ')
+            status=select_status()
             rating=get_rating()
-            hours_played=float(input(f'Hours Played: '))
+            hours_played = get_float('Hours Played: ')
             platform=input(f'Platform: ')
             collection.append(Game(game_name,status=status,rating=rating,hours_played=hours_played,platform=platform))
             print('\n\n')
@@ -71,6 +126,7 @@ def view_all(collection):
 
 def update_status(collection, item_number, new_status):
     index = item_number - 1
+
     if index < 0 or index >= len(collection):
         print('Invalid item number.')
         return
@@ -132,48 +188,47 @@ def show_stats(collection):
     status={
         'finished':0,
         'not-started':0,
-        'watched':0,
         'in-progress':0
     }
 
     #type
-    type={
+    media_type={
         'book':0,
         'movie':0,
         'game':0
     }
     avg_sum=0
-    sum=0
+    rating_sum=0
     l=0
     for items in collection:
         if items.status.lower() in status:
             status[items.status.lower()]+=1
 
         if isinstance(items,Book):
-            type['book'] +=1
+            media_type['book'] +=1
 
         elif isinstance(items,Movie):
-            type['movie'] +=1
+            media_type['movie'] +=1
 
         elif isinstance(items,Game):
-            type['game'] +=1
+            media_type['game'] +=1
         else :
             pass
 
         if (items.rating == None):
             pass
         else:
-            sum+=items.rating
+            rating_sum+=items.rating
             l+=1
 
 
     if l == 0:
         avg_sum = None
     else:
-        avg_sum = sum / l
+        avg_sum = rating_sum / l
     stats={
         'status':status,
-        'type':type,
+        'type':media_type,
         'average rating':avg_sum
     }
 
@@ -199,14 +254,56 @@ def print_stats(collection):
         print(f"\nAverage rating: {stats['average rating']:.1f}")
 
 
+def save_collection(collection,filename): #dict->json
+    data=[]
+
+    for items in collection:
+        data.append(items.to_dict())
+
+    with open(filename,"w") as file:
+        json.dump(data,file,indent=4)
 
 
+def rebuild_item(data): #jason->dict
+    date_added=date.fromisoformat(data['date_added'])
 
-        
+    if data['type'] == 'book':
+        return Book(data['title'],status=data['status'],rating=data['rating'],pages=data['pages'],author=data['author'],date_added=date_added)
+    
+    elif data['type'] == 'movie':
+        return Movie(data['title'],status=data['status'],rating=data['rating'],runtime_minutes=data['runtime_minutes'],director=data['director'],date_added=date_added)
+    
+    elif data['type'] == 'game':
+        return Game(data['title'],status=data['status'],rating=data['rating'],hours_played=data['hours_played'],platform=data['platform'],date_added=date_added)
+
+    else:
+        raise ValueError(f"Unknown media type in saved data: {data['type']!r}")
+
+
+    
+def load_data(filename): #jason->dict
+    with open(filename,"r") as file:
+        data=json.load(file)
+
+    collection=[]
+
+    for item in data:
+        collection.append(rebuild_item(item))
+
+    return collection
 
 
 def main():
-    collection = []
+    try:
+        collection = load_data(DATA_FILE)
+
+    except FileNotFoundError:
+        collection=[]
+
+    except json.JSONDecodeError:
+        print("Saved data is corrupted. Starting with an empty collection.")
+        collection = []
+
 
     while True:
         print('\n--- Media Tracker ---')
@@ -218,14 +315,20 @@ def main():
         print('6. Stats')
         print('7. Save and exit')
 
-        choice = input('Enter your choice: ')
+        choice=None
+        while True:
+            try:
+                choice = int(input('Enter your choice: '))
+                break
+            except ValueError:
+                print('Please enter a valid number.')
 
         match choice:
-            case '1':
+            case 1:
                 add_item(collection)
-            case '2':
+            case 2:
                 view_all(collection)
-            case '3':
+            case 3:
                 search_choice = input('Search by: 1. Title  2. Type  3. Status: ')
                 if search_choice == '1':
                     show_results(search_by_title(collection, input('Enter title keyword: ')))
@@ -235,20 +338,43 @@ def main():
                     show_results(filter_by_status(collection, input('Enter status: ')))
                 else:
                     print('Invalid search option.')
-            case '4':
+            case 4:
                 view_all(collection)
-                item_number = int(input('Enter item number: '))
-                new_status = input('Enter new status: ')
+                while(True):
+                    
+                    try:
+                        item_number = int(input('Enter item number: '))
+                    except ValueError:
+                        print('Please enter a valid number.')
+                        continue
+
+
+                    index=item_number-1
+                    if index < 0 or index >= len(collection):
+                        print('Invalid item number...try again...\n')
+                        continue
+                    else:
+                        break
+                new_status = select_status()
                 update_status(collection, item_number, new_status)
-            case '5':
+            case 5:
                 view_all(collection)
-                item_number = int(input('Enter item number: '))
+                while True:
+                    try:
+                        item_number = int(input('Enter item number: '))
+                        break
+                    except ValueError:
+                         print('Please enter a valid number.')
                 delete_item(collection, item_number)
-            case '6':
+            case 6:
                 print_stats(collection)
-            case '7':
-                print('Goodbye! Saving will be added in the JSON phase.')
-                break
+            case 7:
+                try:
+                    save_collection(collection,DATA_FILE)
+                    print('Collection saved successfully. Goodbye! :) ')
+                    break
+                except OSError:
+                    print('Could not save collection')
             case _:
                 print('Invalid option.')
 
