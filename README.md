@@ -137,6 +137,4 @@ The data isn't flat — three different item shapes are being stored (`Book`, `M
 - No autosave after every individual add/update/delete — saving happens on exit, on interrupt, or on crash, not continuously
 - Deleted items cannot be recovered once confirmed
 
-## License
 
-Add your license of choice here.
